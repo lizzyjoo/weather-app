@@ -4,20 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Weather App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
+    <header>
+      <div class="header-icon"></div>
+      <p class="header-title">WETHOPS,,</p>
+    </header>
     <div class="container">
       <div class="today-overview">
         <div class="current-weather">
           <div class="conditions"></div>
+          <div class="day"></div>
           <div class="today-icon"></div>
           <div class="today-temp"></div>
           <div class="unit-toggle">
-            <button>&#8457;</button>
-            <button>&#8451;</button>
+            <button id="fdegree">&#8457;</button>
+            <button id="cdegree">&#8451;</button>
           </div>
           <div class="current-location"></div>
-          <div class="current-time-date">As of:</div>
+          <div class="current-time-date"></div>
           <div class="location-search">
             <input
               id="pac-input"
@@ -28,18 +39,64 @@
           </div>
         </div>
         <div class="today-additional-info">
-          <div class="today-info" id="feels-like">Feels like</div>
-          <div class="today-info" id="humidity">Humidity</div>
-          <div class="today-info" id="rain-chance">Chance of Rain</div>
-          <div class="today-info" id="wind-speed">Wind Speed</div>
-          <div class="today-info" id="uv">UV</div>
-          <div class="today-info" id="sunrise">Sunrise</div>
-          <div class="today-info" id="sunset">Sunset</div>
+          <div class="today-feel">
+            <div class="name-icon">
+              <div class="feels-icon"></div>
+              <p>Feels like</p>
+            </div>
+
+            <div class="today-info" id="feels-like"></div>
+          </div>
+          <div class="today-rain">
+            <div class="name-icon">
+              <div class="rain-icon"></div>
+              <p>Chance of rain</p>
+            </div>
+            <div class="today-info" id="rain-chance"></div>
+          </div>
+
+          <div class="today-humidity">
+            <div class="name-icon">
+              <div class="humidity-icon"></div>
+              <p>Humidity</p>
+            </div>
+            <div class="today-info" id="humidity"></div>
+          </div>
+          <div class="today-uv">
+            <div class="name-icon">
+              <div class="uv-icon"></div>
+              <p>UV index</p>
+            </div>
+            <div class="today-info" id="uv"></div>
+          </div>
+
+          <div class="today-wind">
+            <div class="name-icon">
+              <div class="wind-icon"></div>
+              <p>Wind speed</p>
+            </div>
+            <div class="today-info" id="wind-speed"></div>
+          </div>
+
+          <div class="today-sunrise">
+            <div class="name-icon">
+              <div class="sunrise-icon"></div>
+              <p>Sunrise</p>
+            </div>
+            <div class="today-info" id="sunrise"></div>
+          </div>
+          <div class="today-sunset">
+            <div class="name-icon">
+              <div class="sunset-icon"></div>
+              <p>Sunset</p>
+            </div>
+            <div class="today-info" id="sunset"></div>
+          </div>
         </div>
       </div>
       <div class="forecast">
         <div class="week-hour-toggle">
-          <button id="weekly">Week</button>
+          <button id="week">Week</button>
           <button id="hourly">Hourly</button>
         </div>
         <div class="weather-over-time"></div>
