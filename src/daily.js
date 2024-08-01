@@ -1,5 +1,5 @@
 class Daily {
-  constructor(datetime, icon, precipprob, temp, tempmin, tempmax, conditions) {
+  constructor(datetime, icon, precipprob, temp, tempmin, tempmax) {
     this.datetime = datetime;
     this.icon = icon;
     this.temp = temp;
