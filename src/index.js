@@ -2,6 +2,9 @@ import "./style.css";
 import Weather from "./weather";
 import Daily from "./daily";
 import Hour from "./hour";
+import Storage from "./storage";
+
+let currentUnit = "C"; // Default unit is Celsius
 
 // google places API: address autocomplete wdiget
 (function (g) {
@@ -75,14 +78,33 @@ async function initAutocomplete() {
 
     // Form a more specific location query
     const locationQuery = `${city}, ${state}, ${country}`;
-    console.log("Selected Location:", locationQuery);
+    // const [loccity, locstate, loccountry] = locationQuery
+    //   .split(", ")
+    //   .map((part) => part.trim());
+    const locale = getLocaleFromCountry(country);
+
+    // save to storage
+    Storage.saveLocation(locationQuery);
 
     // Call getWeather with the more specific location
-    getWeather(locationQuery);
+    getWeather(locationQuery, locale);
   });
 }
 
-async function getWeather(city) {
+function initialize() {
+  const savedLocation = Storage.getLocation();
+  if (savedLocation) {
+    getWeather(savedLocation);
+  } else {
+    // by default, set it to cambridge
+    getWeather("Cambridge, MA, USA");
+  }
+}
+
+function domEventListeners() {}
+
+// get weather data based on location query
+async function getWeather(city, locale) {
   if (city) {
     try {
       const response = await fetch(
@@ -93,7 +115,7 @@ async function getWeather(city) {
       const data = await response.json();
       console.log(data);
       // process data
-      processWeatherData(data);
+      processWeatherData(data, locale);
     } catch (error) {
       console.error("Error fetching weather data:", error);
     }
@@ -105,32 +127,53 @@ async function getWeather(city) {
 initAutocomplete();
 
 // extract only the data that I need, return as an object
-function processWeatherData(data) {
+function processWeatherData(data, locale) {
   // create a weather object for 'today'
+
   const todayWeather = new Weather(
     data.currentConditions.conditions,
-    data.currentConditions.datetime,
-    data.currentConditions.feelslike,
-    data.currentConditions.humidity,
+    getDayName(data.days[0].datetime, locale),
+    data.resolvedAddress,
+    formatHour(data.currentConditions.datetime),
+    Math.round(data.currentConditions.feelslike),
+    Math.round(data.currentConditions.humidity),
+    data.currentConditions.precipprob,
     data.currentConditions.icon,
-    data.currentConditions.temp,
+    Math.round(data.currentConditions.temp),
     data.currentConditions.tempmin,
     data.currentConditions.tempmax,
     data.currentConditions.windspeed,
-    data.currentConditions.sunrise,
-    data.currentConditions.sunset,
+    formatTime(data.currentConditions.sunrise),
+    formatTime(data.currentConditions.sunset),
     data.currentConditions.uvindex
   );
+
   displayTodayWeather(todayWeather);
 
   // hourly info for 'today'
   const todayHourly = data.days[0].hours;
-  const hourlyData = [];
-  todayHourly.forEach((hour) => {
-    const hourData = new Hour(hour.datetime, hour.temp, hour.precipprob);
-    hourlyData.push(hourData);
-  });
+  const filteredHourlyData = filterHourlyData(
+    todayHourly,
+    data.currentConditions.datetime
+  );
+
+  const tomorrowHourly = data.days[0].hours;
+  const combined = filteredHourlyData.concat(tomorrowHourly);
+  const hourlyData = combined.map(
+    (hour) =>
+      new Hour(
+        formatHour(hour.datetime),
+        Math.round(hour.temp),
+        hour.icon,
+        hour.precipprob
+      )
+  );
+
   displayHourlyWeather(hourlyData);
+  document.getElementById("hourly").addEventListener("click", () => {
+    displayHourlyWeather(hourlyData);
+    updateTemperatureUI();
+  });
 
   // create 'daily' objects from the 'days' of JSON
   const days = data.days;
@@ -141,9 +184,10 @@ function processWeatherData(data) {
 
   daysToProcess.forEach((day) => {
     const dayInfo = new Daily(
-      day.datetime,
+      getDayName(day.datetime, locale),
       day.icon,
-      day.temp,
+      day.precipprob,
+      Math.round(day.temp),
       day.tempmin,
       day.tempmax,
       day.conditions
@@ -152,29 +196,138 @@ function processWeatherData(data) {
   });
 
   displayForecast(weekOverview);
+  document.getElementById("week").addEventListener("click", () => {
+    displayForecast(weekOverview);
+    updateTemperatureUI();
+  });
+}
+const countryToLocaleMap = {
+  US: "en-US",
+  CA: "en-CA",
+  GB: "en-GB",
+  FR: "fr-FR",
+  DE: "de-DE",
+  // Add more mappings as needed
+};
+
+function getLocaleFromCountry(countryCode) {
+  return countryToLocaleMap[countryCode] || "en-US"; // Default to en-US if not found
+}
+function getDayName(dateStr, locale) {
+  const trimmedDateStr = dateStr.trim();
+  const date = new Date(trimmedDateStr + "T00:00:00Z"); // Ensure date is in UTC
+
+  if (isNaN(date.getTime())) {
+    console.error("Invalid date:", trimmedDateStr);
+    return "Invalid Date";
+  }
+  return date.toLocaleDateString(locale, { weekday: "long", timeZone: "UTC" });
+}
+
+function getNextDayHourlyData(data) {
+  const todayHourly = data.days[0].hours;
+  const nextDayHourly = data.days[1]?.hours || []; // Handle case where there's no next day's data
+
+  return todayHourly.concat(nextDayHourly);
+}
+
+function filterHourlyData(hours, currentHourStr) {
+  const currentHour = new Date(`1970-01-01T${currentHourStr}Z`).getTime();
+  const endTime = currentHour + 24 * 60 * 60 * 1000; // 24 hours later in milliseconds
+
+  return hours.filter((hour) => {
+    const hourTime = new Date(`1970-01-01T${hour.datetime}Z`).getTime();
+    return hourTime >= currentHour && hourTime <= endTime;
+  });
+}
+
+function formatHour(timeStr) {
+  const hour = Number(timeStr.split(":")[0]);
+
+  // Determine AM or PM
+  const period = hour >= 12 ? "PM" : "AM";
+
+  // Convert hours from 24-hour to 12-hour format
+  const adjustedHour = hour % 12 || 12;
+
+  // Format the hour string
+  return `${adjustedHour} ${period}`;
+}
+
+// display HH:MM AM/PM
+function formatTime(timeStr) {
+  // Extract the hour and minute parts from the time string
+  const [hour, minute] = timeStr.split(":").map(Number);
+
+  // Determine AM or PM
+  const period = hour >= 12 ? "PM" : "AM";
+
+  // Convert hours from 24-hour to 12-hour format
+  const adjustedHour = hour % 12 || 12;
+
+  // Format the time string
+  return `${adjustedHour}:${minute.toString().padStart(2, "0")} ${period}`;
 }
 
 function displayTodayWeather(weather) {
   // DOM elements
+  //main info
   const conditions = document.querySelector(".conditions");
+  const day = document.querySelector(".day");
   const todayIcon = document.querySelector(".today-icon");
   const todayTemp = document.querySelector(".today-temp");
+  todayTemp.classList.add("ctemp", "temp");
+  todayTemp.setAttribute("data-original-temp", weather.temp);
   const currLocation = document.querySelector(".current-location");
   const currTimeDate = document.querySelector(".current-time-date");
+  const fahrenheitBtn = document.getElementById("fdegree");
+  const celciusBtn = document.getElementById("cdegree");
 
-  // append last updated time info
-  const currTimeText = document.createElement("p");
-  currTimeText.classList.add("curr-time");
-  currTimeText.textContent = weather.datetime;
+  // additional info
+  const feelsLike = document.getElementById("feels-like");
+  feelsLike.classList.add("temp", "ctemp");
+  feelsLike.setAttribute("data-original-temp", weather.feelslike);
+  const humidity = document.getElementById("humidity");
+  const rainChance = document.getElementById("rain-chance");
+  const windSpeed = document.getElementById("wind-speed");
+  const uv = document.getElementById("uv");
+  const sunrise = document.getElementById("sunrise");
+  const sunset = document.getElementById("sunset");
+
+  // current condition
   conditions.textContent = weather.conditions;
-  currTimeDate.appendChild(currTimeText);
+  day.textContent = weather.day;
+  currTimeDate.textContent = `As of ${weather.datetime}`;
 
   // create icon and append to today-icon div
   const icon = createWeatherIcon(weather.icon);
+  icon.id = "today";
+  todayIcon.innerHTML = "";
   todayIcon.appendChild(icon);
 
   // temp
-  todayTemp.textContent = `${weather.temp}`;
+  todayTemp.textContent = `${weather.temp}°C`;
+
+  // location
+  currLocation.textContent = weather.address;
+
+  feelsLike.textContent = `${weather.feelslike}°C`;
+  humidity.textContent = `${weather.humidity}%`;
+  rainChance.textContent = `${weather.precipprob}%`;
+  windSpeed.textContent = `${weather.windspeed} km/hour`;
+  uv.textContent = `${weather.uvindex}`;
+  sunrise.textContent = `${weather.sunrise}`;
+  sunset.textContent = `${weather.sunset}`;
+
+  // event listener to switch degree units
+  fahrenheitBtn.addEventListener("click", () => {
+    currentUnit = "F";
+    updateTemperatureUI();
+  });
+  celciusBtn.addEventListener("click", () => {
+    currentUnit = "C";
+    updateTemperatureUI();
+  });
 }
 
 function createWeatherIcon(iconType) {
@@ -194,8 +347,111 @@ function createWeatherIcon(iconType) {
   iconElement.className = `${iconClass}`;
   return iconElement;
 }
-// parameter: array of hourl objects (24hrs)
-function displayHourlyWeather(hourlyData) {}
+
+// parameter: array of hourly objects (24hrs)
+function displayHourlyWeather(hourlyData) {
+  const forecastContainer = document.querySelector(".weather-over-time");
+  forecastContainer.classList.add("scroll");
+  forecastContainer.innerHTML = "";
+
+  hourlyData.forEach((hour) => {
+    const hourDiv = document.createElement("div");
+    hourDiv.classList.add("hour");
+    hourDiv.innerHTML = `
+    <p class="hour-time">${hour.datetime}</p>
+    <div class="day-rain-div">
+        <div class="rain-prob-icon"></div>
+        <p>${hour.precipprob}%</p>
+    </div>
+    <div class="${createWeatherIcon(hour.icon).className}"></div>
+    <p div class="ctemp temp" data-original-temp="${hour.temp}">${
+      hour.temp
+    }°C</p>
+    
+    `;
+
+    forecastContainer.appendChild(hourDiv);
+  });
+}
 
 // array of 'daily' objects
-function displayForecast(weekOverview) {}
+function displayForecast(weekOverview) {
+  // DOM elements
+  const forecastContainer = document.querySelector(".weather-over-time");
+  forecastContainer.innerHTML = "";
+  weekOverview.forEach((day) => {
+    const dayDiv = document.createElement("div");
+    dayDiv.classList.add("day");
+
+    const datetimeP = document.createElement("p");
+    datetimeP.textContent = day.datetime;
+    datetimeP.classList.add("day-name");
+
+    const dayRainDiv = document.createElement("div");
+    dayRainDiv.classList.add("day-rain-div");
+
+    const rainProbIconDiv = document.createElement("div");
+    rainProbIconDiv.classList.add("rain-prob-icon");
+
+    const precipProbP = document.createElement("p");
+    precipProbP.classList.add("precip-prob");
+    precipProbP.textContent = `${day.precipprob}%`;
+
+    dayRainDiv.appendChild(rainProbIconDiv);
+    dayRainDiv.appendChild(precipProbP);
+
+    const weatherIconDiv = createWeatherIcon(day.icon);
+
+    const minmaxDiv = document.createElement("div");
+    minmaxDiv.classList.add("minmax");
+
+    const minTempP = document.createElement("p");
+    minTempP.classList.add("ctemp", "temp");
+    minTempP.setAttribute("data-original-temp", Math.round(day.tempmin));
+    minTempP.textContent = `${Math.round(day.tempmin)}°C`;
+
+    const separatorSpan = document.createElement("span");
+    separatorSpan.textContent = "/";
+
+    const maxTempP = document.createElement("p");
+    maxTempP.classList.add("ctemp", "temp");
+    maxTempP.setAttribute("data-original-temp", Math.round(day.tempmax));
+    maxTempP.textContent = `${Math.round(day.tempmax)}°C`;
+
+    minmaxDiv.appendChild(minTempP);
+    minmaxDiv.appendChild(separatorSpan);
+    minmaxDiv.appendChild(maxTempP);
+
+    dayDiv.appendChild(datetimeP);
+    dayDiv.appendChild(dayRainDiv);
+    dayDiv.appendChild(weatherIconDiv);
+    dayDiv.appendChild(minmaxDiv);
+
+    forecastContainer.appendChild(dayDiv);
+  });
+}
+
+function convertTemperature(value, toUnit) {
+  if (toUnit === "F") {
+    return (value * 9) / 5 + 32;
+  }
+  return value; // Default to Celsius conversion
+}
+
+function updateTemperatureUI() {
+  const tempElements = document.querySelectorAll(".temp");
+
+  tempElements.forEach((element) => {
+    const originalValue = parseFloat(
+      element.getAttribute("data-original-temp")
+    );
+    if (currentUnit === "F") {
+      const fahrenheitValue = convertTemperature(originalValue, "F");
+      element.textContent = `${Math.round(fahrenheitValue)}°F`;
+    } else {
+      element.textContent = `${Math.round(originalValue)}°C`;
+    }
+  });
+}
+
+initialize();
