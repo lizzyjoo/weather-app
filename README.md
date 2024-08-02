@@ -2,7 +2,7 @@
 
 Simple Weather App
 
-## Visual Crossing Weather WPI
+## Visual Crossing Weather API
 
 visualcrossing.com
 
