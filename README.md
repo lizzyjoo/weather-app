@@ -2,7 +2,7 @@
 
 **Wethops** is a simple weather application built using JavaScript, HTML, and CSS. The project was inspired by The Odin Project Weather App course. The app provides users with real-time weather data and forecasts by utilizing the **Visual Crossing Weather API**. It also offers location search functionality using **Google Places Autocomplete API**.
 
-![Wethops Screenshot](./src/assets/screenshot.png)
+![Wethops Screenshot](./src/assets/app-preview.png)
 
 ## Features
 
